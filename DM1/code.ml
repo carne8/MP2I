@@ -51,10 +51,8 @@ let trie_exemple =
 (* Question 1 *)
 let rec est_bien_forme = function
   | V -> true
-  | N(char, gauche, droit) ->
-    match char with
-    | '$' -> gauche = V && est_bien_forme droit
-    | _ -> gauche <> V && est_bien_forme gauche && est_bien_forme droit
+  | N('$', gauche, droit) -> gauche = V && est_bien_forme droit
+  | N(_, gauche, droit) -> gauche <> V && est_bien_forme gauche && est_bien_forme droit
 
 (* Question 2 *)
 let mot_of_string (str: string) =
@@ -77,7 +75,7 @@ let[@tail_mod_cons] rec list_map f = function (* Fait la même chose que List.ma
 
 let rec mots_of_trie = function
   | V -> []
-  | N('$', V, d) -> ['$'] :: mots_of_trie d (* On ajoute le mot vide à l'ensmble de mots à droite *)
+  | N('$', V, d) -> ['$'] :: mots_of_trie d (* On ajoute le mot vide à l'ensemble de mots à droite *)
   | N(c, g, d) ->
       g
       |> mots_of_trie
@@ -137,7 +135,16 @@ let rec recherche trie mot =
     | c'::reste when c' = c -> recherche g reste
     | c'::_ -> recherche d mot
 
-(* TODO: Question 3 *)
+(* Lorsqu'on cherche une lettre dans l'arbre, on cherche dans
+   tous les fils droits (fils droit, fils droit du fils droit, etc).
+
+   Comme nous sommes assuré que la lettre d'un noeud n'est pas dans
+   ses fils droits, lorsque l'on recherche une lettre dans l'arbre,
+   on compare au plus 26 fois avant de passer à la lettre suivante
+   ou de terminer.
+
+   Donc, pour un mot entier, on fait au plus 26*n comparaison.
+   Ainsi, la complexité est en O(n) *)
 
 (* Question 4 *)
 let rec insere trie mot =
@@ -146,11 +153,8 @@ let rec insere trie mot =
   | hd::tl ->
     match trie with
     | V -> N(hd, insere V tl, V)
-    | N(c, g, d) ->
-      if hd = c then
-        N(c, insere g tl, d)
-      else
-        N(c, g, insere d mot)
+    | N(c, g, d) when c = hd -> N(c, insere g tl, d)
+    | N(c, g, d) -> N(c, g, insere d mot)
 
 (* Question 5 *)
 let rec trie_of_list = function
@@ -181,7 +185,7 @@ let rec compte_mots_longs trie min_length =
   match trie with
   | V -> 0
   | N(_, g, d) ->
-    compte_mots_longs g (min_length-1) (* TODO: Trouver comment expliquer *)
+    compte_mots_longs g (min_length-1)
     + compte_mots_longs d min_length
 
 (* Question 8 *)
@@ -228,7 +232,7 @@ let test_exercice2 () =
   assert (recherche trie_exemple ['s'; 'i'; 't'; 'e'; '$']);
   assert (not (recherche trie_exemple ['d'; 'o'; 'd'; 'o'; '$']));
 
-  (* On verifie que chaque mot de `exemple` est dans le trie `trie_exemple` *)
+  (* On vérifie que chaque mot de `exemple` est dans le trie `trie_exemple` *)
   assert (exemple |> List.for_all (fun mot_str ->
     mot_str
     |> mot_of_string
@@ -335,7 +339,7 @@ let test_exercice2 () =
   assert (tab1
           |> Array.to_list
           |> List.drop 1
-          |> List.for_all ((=) 0)); (* Vérifie si toutes les autres valeures du tableau sont 0 *)
+          |> List.for_all ((=) 0)); (* Vérifie si toutes les autres valeurs du tableau sont 0 *)
 
   let tab2 = tableau_occurrences "abbccc" in
   assert (tab2.(0) = 1);
@@ -413,97 +417,150 @@ let test_exercice3 () =
 (* ------------ Exercice 4 ------------ *)
 
 (* Question 1 *)
-(** Vérifie si occ_sous_mot est le tableau d’occurrence d'un sous mot
-    du mot dont occ_mot est le tableau d’occurrence *)
-let est_sous_mot occ_mot occ_sous_mot =
-  (* Array.for_all2 vérifie si une condition est vraie pour chaque
-     paire d'éléments de même index dans les deux tableaux *)
-  Array.for_all2
-    (fun occ_mot occ_sous_mot -> occ_mot >= occ_sous_mot)
-    occ_mot
-    occ_sous_mot
 
-let tableau_occurrences_mot mot =
-  let tab = Array.make 26 0 in
-  let rec aux i = function
-    | []
-    | ['$'] -> ()
-    | c::reste ->
-      let idx = Char.code c - Char.code 'a' in
-      tab.(idx) <- tab.(idx) + 1;
-      aux (i+1) reste
-  in
-  aux 0 mot;
-  tab
+(** Renvoie un nouveau tableau avec le nombre d'occurrence d'une lettre décrémenté de 1 *)
+let decr_char char tab =
+  let idx = Char.code char - Char.code 'a' in
+  Array.init (Array.length tab) (fun i ->
+      if i = idx then
+        tab.(i) - 1
+      else
+        tab.(i)
+  )
 
 let sous_mots trie mot_str =
-  let occurrences = tableau_occurrences mot_str in
-  trie |> iter_trie (fun mot ->
-    let est_sous_mot =
-      mot
-      |> tableau_occurrences_mot
-      |> est_sous_mot occurrences
-    in
-    if est_sous_mot then begin
-      mot |> afficher_mot;
-      print_newline ()
-    end
-  )
+  let rec aux mot_courant trie (tab_occ: int array) =
+    match trie with
+    | V -> ()
+    | N('$', V, d) ->
+      mot_courant
+      |> List.rev
+      |> afficher_mot;
+      print_newline ();
+      aux mot_courant d tab_occ
+    | N(c, g, d) ->
+      if tab_occ.(Char.code c - Char.code 'a') > 0 then
+        tab_occ |> decr_char c |> aux (c::mot_courant) g;
+      aux mot_courant d tab_occ
+  in
+  mot_str
+  |> tableau_occurrences
+  |> aux [] trie
+
 
 (* Question 2 *)
 let afficher_anagrammes trie mot_str =
-  let occurrences = tableau_occurrences mot_str in
-  trie |> iter_trie (fun mot ->
-    (* Deux mots sont anagrammes si ils ont le même tableau d'occurrence *)
-    let est_anagramme = tableau_occurrences_mot mot = occurrences
-    in
-    if est_anagramme then begin
-      mot |> afficher_mot;
-      print_newline ()
-    end
-  )
+  let rec aux mot_courant trie (tab_occ: int array) =
+    match trie with
+    | V -> ()
+    | N('$', V, d) ->
+      (* Deux anagrammes ont le même tableau d'occurrence
+         Donc la différence de l'occurrence de chacun de leur caractère est nulle
+         Si ce n'est pas le cas, les deux mots ne sont pas des anagrammes *)
+
+      if Array.for_all (fun occ -> occ == 0) tab_occ then begin
+        (* Est anagramme *)
+        mot_courant
+        |> List.rev
+        |> afficher_mot;
+        print_newline ();
+      end
+      else
+        (* N'est pas anagramme *)
+        aux mot_courant d tab_occ
+    | N(c, g, d) ->
+      if tab_occ.(Char.code c - Char.code 'a') > 0 then
+        tab_occ
+        |> decr_char c
+        |> aux (c::mot_courant) g;
+      aux mot_courant d tab_occ
+  in
+  mot_str
+  |> tableau_occurrences
+  |> aux [] trie
+
 
 (* Question 3 *)
-let filtrer_trie f trie =
-  let new_trie = ref V in
-
-  trie |> iter_trie (fun mot ->
-    if f mot then
-      new_trie := mot |> insere !new_trie
-  );
-  !new_trie
-
 let filtrer_sous_mots trie mot_str =
-  let occurrences = tableau_occurrences mot_str in
-  trie |> filtrer_trie (fun mot ->
-    mot
-    |> tableau_occurrences_mot
-    |> est_sous_mot occurrences
-  )
+  let rec aux trie (tab_occ: int array) =
+    match trie with
+    | V -> V
+    | N('$', V, d) -> N('$', V, aux d tab_occ)
+    | N(c, g, d) ->
+      if tab_occ.(Char.code c - Char.code 'a') > 0 then
+        let left_tab = decr_char c tab_occ in
+
+        (* Assure que le trie soit bien formé *)
+        match aux g left_tab with
+        | V -> aux d tab_occ
+        | g' -> N(c, g', aux d tab_occ)
+      else
+        aux d tab_occ
+  in
+  mot_str
+  |> tableau_occurrences
+  |> aux trie
 
 let filtrer_anagrammes trie mot_str =
-  let occurrences = tableau_occurrences mot_str in
-  trie |> filtrer_trie (fun mot -> tableau_occurrences_mot mot = occurrences)
+  let rec aux trie (tab_occ: int array) =
+    match trie with
+    | V -> V
+    | N('$', V, d) ->
+      if Array.for_all (fun occ -> occ == 0) tab_occ then
+        (* Est anagramme *)
+        N('$', V, V)
+      else
+        (* N'est anagramme *)
+        aux d tab_occ
+    | N(c, g, d) ->
+      if tab_occ.(Char.code c - Char.code 'a') > 0 then
+        let left_tab = decr_char c tab_occ in
+
+        (* Assure que le trie soit bien formé *)
+        match aux g left_tab with
+        | V -> aux d tab_occ
+        | g' -> N(c, g', aux d tab_occ)
+      else aux d tab_occ
+  in
+  mot_str
+  |> tableau_occurrences
+  |> aux trie
+
 
 (* Question 4 *)
 let filtrer_sur_mots trie mot_str =
-  (* Fait la même chose que est sous_mot mais change le sens de l'inégalité *)
-  let occurrences = tableau_occurrences mot_str in
-  trie |> filtrer_trie (fun mot ->
-    Array.for_all2
-      (fun occ1 occ_mot -> occ_mot <= occ1)
-      (mot |> tableau_occurrences_mot)
-      occurrences
-  )
+  let rec aux trie (tab_occ: int array) =
+    match trie with
+    | V -> V
+    | N('$', V, d) ->
+      if Array.for_all (fun occ -> occ == 0) tab_occ then
+        N('$', V, aux d tab_occ)
+      else
+        aux d tab_occ
+    | N(c, g, d) ->
+      let g' =
+        if tab_occ.(Char.code c - Char.code 'a') > 0 then
+          let left_tab = decr_char c tab_occ in
+          aux g left_tab
+        else
+          aux g tab_occ
+      in
+
+      (* Assure que le trie soit bien formé *)
+      match g' with
+      | V -> aux d tab_occ
+      | g' -> N(c, g', aux d tab_occ)
+  in
+  mot_str
+  |> tableau_occurrences
+  |> aux trie
 
 let test_exercice4 () =
-
-  (* let cinq_cent_mots = trie_of_file "cinq_cent_mots.txt" in *)
   let ods6_lowercase = trie_of_file "ods6_lowercase.txt" in
 
   (* Test question 1 *)
   Printf.printf "\nSous-mots de bonjour:\n";
-  sous_mots ods6_lowercase "bonjour";
+  sous_mots ods6_lowercase "argent";
 
   (* Test question 2 *)
   Printf.printf "\nAnagrammes de manoir:\n";
@@ -516,10 +573,13 @@ let test_exercice4 () =
   afficher_anagrammes trie "bonjour";
 
   (* Test question 3 *)
+  assert (filtrer_sous_mots ods6_lowercase "banane" |> est_bien_forme);
+  assert (filtrer_anagrammes ods6_lowercase "inserat" |> est_bien_forme);
   assert (cardinal (filtrer_sous_mots ods6_lowercase "banane") = 17);
-  (* TODO: Ne fonctionne pas: assert (cardinal (filtrer_sous_mots ods6_lowercase "inserat") = 20) *)
+  assert (cardinal (filtrer_anagrammes ods6_lowercase "inserat") = 20);
 
   (* Test question 4 *)
+  assert (filtrer_sur_mots ods6_lowercase "mpdeuxi" |> est_bien_forme);
   assert (cardinal (filtrer_sur_mots ods6_lowercase "mpdeuxi") = 30)
 
 let () =

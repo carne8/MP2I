@@ -41,9 +41,10 @@ double module(complexe_t x) {
     return sqrt(x.im*x.im + x.re*x.re);
 }
 complexe_t multiplication(complexe_t x, complexe_t y) {
-    complexe_t product;
-    product.re = x.re * y.re - x.im * y.im;
-    product.im = x.re * y.im + x.im * y.re;
+    complexe_t product = {
+        .re = x.re * y.re - x.im * y.im,
+        .im = x.re * y.im + x.im * y.re
+    };
     return product;
 }
 
