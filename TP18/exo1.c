@@ -60,14 +60,14 @@ ui get_digit_based(ui x, int k, int p) {
 }
 
 // Question 7
-int* histogram(ui* in, int n, int k) {
+int* histogram(ui* in, int n, int k) { // O(n)
     int* hist = calloc(base, sizeof(int));
     for (int i = 0; i < n; i++) hist[get_digit(in[i], k)]++;
     return hist;
 }
 
 // Quesiton 8
-int* prefix_sums(int* hist) {
+int* prefix_sums(int* hist) { // O(base)
     int* sums = malloc(base * sizeof(int));
     int sum = 0;
     for (int i = 0; i < base; i++) {
@@ -78,23 +78,23 @@ int* prefix_sums(int* hist) {
 }
 
 // Quesiton 9
-void radix_sort(ui* tab, int n) {
+void radix_sort(ui* tab, int n) { // O(n + (8*w / p) * (3n + base))
     ui* out = malloc(sizeof(ui) * n);
-    copy(tab, out, n);
+    copy(tab, out, n); // O(n)
 
     int nb_passes = 8*sizeof(ui) / p;
-    for (int k = 0; k < nb_passes; k++) {
-        int* hist = histogram(out, n, k);
-        int* sums = prefix_sums(hist);
+    for (int k = 0; k < nb_passes; k++) {  // O((8*w / p) * (3n + base))
+        int* hist = histogram(out, n, k);  // O(n)
+        int* sums = prefix_sums(hist);     // O(base)
         ui* temp = malloc(sizeof(ui) * n);
 
-        for (int i = 0; i < n; i++) {
+        for (int i = 0; i < n; i++) {      // O(n)
             int c = get_digit(out[i], k);
             temp[sums[c]] = out[i];
             sums[c]++;
         }
 
-        copy(temp, out, n);
+        copy(temp, out, n); // O(n)
         free(temp);
         free(hist);
         free(sums);
