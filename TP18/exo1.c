@@ -31,8 +31,8 @@ void print_tab2(int* tab, int n) {
     printf("%d ]\n", tab[n-1]);
 }
 
-const int base = 16;
-const int p = 4;
+const int base = 8;
+const int p = 3;
 // `p` represents the number of bits used
 // for representing a number of the base
 // Should be (int)log2(base)
@@ -82,8 +82,8 @@ void radix_sort(ui* tab, int n) { // O(n + (8*w / p) * (3n + base))
     ui* out = malloc(sizeof(ui) * n);
     copy(tab, out, n); // O(n)
 
-    int nb_passes = 8*sizeof(ui) / p;
-    for (int k = 0; k < nb_passes; k++) {  // O((8*w / p) * (3n + base))
+    int radix = 8*sizeof(ui) / p;
+    for (int k = 0; k < radix; k++) {  // O((8*w / p) * (3n + base))
         int* hist = histogram(out, n, k);  // O(n)
         int* sums = prefix_sums(hist);     // O(base)
         ui* temp = malloc(sizeof(ui) * n);
